@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seven Tracking | Pro Aim Lab</title>
+
+  <link rel="stylesheet" href="/src/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <!-- FUNDO DE INÍCIO -->
+  <div id="game-container"></div>
+
+  <!-- IN-GAME HUD -->
+  <div id="hud" style="display: none;">
+    <div id="crosshair" class="crosshair-basic">+</div>
+
+    <!-- LOGO DENTRO DO JOGO (Top Center/Left) -->
+    <div class="hud-logo-container">
+      <svg viewBox="0 0 240 120" class="hud-logo-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- Number 7 -->
+        <polygon points="50,20 180,20 100,100 60,100 130,40 50,40" fill="#ffffff"/>
+        <!-- Arrow Swoosh -->
+        <path d="M 20,80 C 80,120 160,80 200,40 L 180,30 L 220,20 L 210,60 C 160,100 80,140 10,80 Z" fill="#ffffff"/>
+      </svg>
+    </div>
+
+    <!-- MENU SUPERIOR B&W -->
+    <div class="top-bar fade-in">
+      <div class="stats-box">
+        <span class="label">JOGADOR</span>
+        <span id="playerNameDisplay" class="value glow-white">USER</span>
+      </div>
+      <div class="stats-separator"></div>
+      <div class="stats-box">
+        <span class="label">ESCORE</span>
+        <span id="scoreVal" class="value">0</span>
+      </div>
+      <div class="stats-separator"></div>
+      <div class="stats-box">
+        <span class="label">MODO ATUAL</span>
+        <span id="modeVal" class="value glow-white">STANDARD</span>
+      </div>
+    </div>
+
+    <!-- BOTÃO FLUTUANTE DE DIA/NOITE -->
+    <button class="btn-hud float-tr" id="btn-day-night-hud">
+      <span class="icon">🌙</span> TEMA: NOITE
+    </button>
+
+    <!-- HINTS ATUALIZADOS -->
+    <div class="bottom-hints">
+      <div class="hint-item"><span class="key">U</span> PAUSAR / SENSI / LOBBY</div>
+      <div class="hint-separator"></div>
+      <div class="hint-item"><span class="key">L</span> LUZ</div>
+      <div class="hint-separator"></div>
+      <div class="hint-item"><span class="key highlight-key">H</span> ARMA</div>
+    </div>
+  </div>
+
+  <!-- TELA DE AUTENTICAÇÃO -->
+  <div id="auth-screen" class="overlay active">
+    <!-- Efeito particulas sutil no fundo -->
+    <div class="bg-particles"></div>
+
+    <div class="glass-panel auth-panel">
+      <!-- LOGO NATIVA EM SVG PARA GARANTIR QUE SEMPRE SPAWNA -->
+      <svg viewBox="0 0 240 120" class="main-logo-svg" xmlns="http://www.w3.org/2000/svg">
+        <!-- Number 7 -->
+        <polygon points="50,20 180,20 100,100 60,100 130,40 50,40" fill="#ffffff"/>
+        <!-- Arrow Swoosh -->
+        <path d="M 20,80 C 80,120 160,80 200,40 L 180,30 L 220,20 L 210,60 C 160,100 80,140 10,80 Z" fill="#ffffff"/>
+      </svg>
+      <h1 class="main-title">SEVEN <span class="highlight">TRACKING</span></h1>
+      
+      <div class="auth-tabs">
+        <button id="tab-login" class="auth-tab active">Entrar</button>
+        <button id="tab-register" class="auth-tab">Registrar</button>
+      </div>
+
+      <form id="auth-form" style="margin-top: 20px;">
+        <div class="input-group">
+          <label for="authUsername">NICKNAME</label>
+          <input type="text" id="authUsername" required placeholder="Seu Nickname" autocomplete="off" />
+        </div>
+        <div class="input-group">
+          <label for="authPassword">SENHA</label>
+          <input type="password" id="authPassword" required placeholder="••••••••" autocomplete="off" />
+        </div>
+        
+        <div id="register-fields" style="display: none; height: 0; overflow: hidden; opacity: 0; transition: all 0.3s ease;">
+          <div class="form-row">
+            <div class="input-group flex-1">
+              <label for="authDPI">DPI MOUSE</label>
+              <input type="number" id="authDPI" placeholder="800" autocomplete="off" />
+            </div>
+            <div class="input-group flex-1">
+              <label for="authSens">SENSI JOGO</label>
+              <input type="number" id="authSens" step="0.01" placeholder="0.20" autocomplete="off" />
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary ripple-effect" id="btn-auth-submit">
+          <span class="btn-text" id="btn-auth-text">ENTRAR</span>
+          <span class="btn-icon">➔</span>
+        </button>
+        
+        <div style="margin-top: 25px; text-align: center;">
+          <a href="https://discord.gg/XUBPfGDM86" target="_blank" class="discord-link" style="display: inline-flex; align-items: center; gap: 8px; justify-content: center; width: 100%;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6066 3.9497-1.5218 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>
+            Não está na nossa Comunidade? Entre Aqui!
+          </a>
+        </div>
+      </form>
+      <p id="auth-error" class="error-msg" style="display: none;"></p>
+    </div>
+  </div>
+
+  <!-- TELA DE DASHBOARD -->
+  <div id="dashboard-screen" class="dashboard-container" style="display: none;">
+    <!-- SIDEBAR -->
+    <aside class="dashboard-sidebar">
+      <div class="sidebar-logo">
+        <svg viewBox="0 0 240 120" class="sidebar-logo-svg" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="50,20 180,20 100,100 60,100 130,40 50,40" fill="#20b2aa"/>
+          <path d="M 20,80 C 80,120 160,80 200,40 L 180,30 L 220,20 L 210,60 C 160,100 80,140 10,80 Z" fill="#20b2aa"/>
+        </svg>
+        <span>SEVEN<br/>TRACKING</span>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-btn active" id="btn-dash-play">
+          <span class="nav-icon">▶</span>
+          <span>JOGAR</span>
+        </button>
+        <button class="nav-btn" id="btn-dash-profile">
+          <span class="nav-icon">👤</span>
+          <span>Perfil</span>
+        </button>
+        <button class="nav-btn" id="btn-dash-config">
+          <span class="nav-icon">⚙️</span>
+          <span>Configurações</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="dashboard-main">
+      <!-- TOPBAR -->
+      <header class="dashboard-topbar">
+        <div class="topbar-left">
+          <div class="dashboard-main-title" id="dash-page-title">MÓDULO DE TREINO</div>
+        </div>
+        <div class="topbar-right">
+          <div class="topbar-user">
+            <div class="user-avatar" id="nav-avatar-img">👤</div>
+            <div class="user-info">
+              <span class="user-label">Usuário: <span id="dash-username">JOGADOR_1</span></span>
+              <span class="user-rank" id="dash-rank">👑 Mestre</span>
+            </div>
+          </div>
+          <button class="btn-store">🛒 LOJA</button>
+          <button class="btn-notif">🔔</button>
+          <button class="btn-logout" id="btn-logout" title="Sair">🚪</button>
+        </div>
+      </header>
+
+      <!-- CONTENT GRID - PLAY -->
+      <div class="dashboard-grid" id="dash-grid-play">
+        
+        <!-- MODOS DE TREINO (Esquerda Superior) -->
+        <section class="dash-section modes-section">
+          <h2>MODOS DE TREINO</h2>
+          <div id="modes-list" class="modes-grid">
+            <!-- Renderizado dinamicamente pelo main.js -->
+          </div>
+
+          <h2 style="margin-top: 30px;">MODO TREINO COM NPC</h2>
+          <div id="npc-modes-list" class="modes-grid">
+            <div class="mode-card disabled-mode">
+              <div class="mode-card-title">TREINO DE MIRA (NPC)</div>
+              <div class="mode-card-desc">Em breve... Oponentes baseados em jogos como VALORANT / CS2.</div>
+            </div>
+            <div class="mode-card disabled-mode">
+              <div class="mode-card-title">TREINO DE MOVIMENTAÇÃO (NPC)</div>
+              <div class="mode-card-desc">Em breve... Agentes com strafe inteligente.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ESTATÍSTICAS DA SEMANA (Direita Superior) -->
+        <section class="dash-section stats-section" id="weekly-stats-section">
+          <h2>ESTATÍSTICAS DA SEMANA</h2>
+          <div class="dash-card graph-card">
+            <div class="graph-row">
+              <span class="graph-label">Precisão Diária</span>
+              <span class="highlight" id="stat-accuracy">0.0%</span>
+            </div>
+            <div class="fake-graph" id="graph-accuracy">
+               <!-- SVG gerado pelo main.js -->
+            </div>
+            <div class="graph-row" style="margin-top: 15px;">
+              <span class="graph-label">Tempo de Reação Médio</span>
+              <span class="highlight text-blue" id="stat-reaction">0ms</span>
+            </div>
+            <div class="fake-graph" id="graph-reaction">
+               <!-- SVG gerado pelo main.js -->
+            </div>
+          </div>
+        </section>
+
+        <!-- LEADERBOARD GLOBAL (Agora limpo como RANCKING RECORD) -->
+        <section class="dash-section leaderboard-section">
+          <h2>RANCKING RECORD</h2>
+          <div class="dash-card leaderboard-card" id="ranking-list">
+            <div class="lb-row"><span class="lb-pos gold">-</span> <span class="lb-name">Aguardando jogadores...</span> <span class="lb-score"></span></div>
+            <div class="lb-row"><span class="lb-pos silver">-</span> <span class="lb-name"></span> <span class="lb-score"></span></div>
+            <div class="lb-row"><span class="lb-pos bronze">-</span> <span class="lb-name"></span> <span class="lb-score"></span></div>
+            <div class="lb-row"><span class="lb-pos">-</span> <span class="lb-name"></span> <span class="lb-score"></span></div>
+            <div class="lb-row"><span class="lb-pos">-</span> <span class="lb-name"></span> <span class="lb-score"></span></div>
+          </div>
+          
+          <!-- BOTÃO COMEÇAR TREINO -->
+          <button class="btn-start-training" id="btn-start-game">
+            COMEÇAR TREINO <span class="glow-star">✨</span>
+          </button>
+        </section>
+
+      </div>
+
+      <!-- CONTENT GRID - CONFIGURAÇÕES -->
+      <div class="dashboard-page-container" id="dash-page-config" style="display: none;">
+        <div class="dash-card full-page-card">
+          <h2 class="section-heading"><span class="nav-icon">⚙️</span> RESOLUÇÃO & TELA</h2>
+          <div class="config-content">
+            <div class="input-group" style="max-width: 400px;">
+              <label for="gameRes">Resolução / Proporção</label>
+              <select id="gameRes" class="config-select">
+                <option value="auto">Tela Cheia (Auto)</option>
+                <option value="1920x1080">1920x1080 (16:9)</option>
+                <option value="1280x960">1280x960 (4:3 Esticado)</option>
+                <option value="1024x768">1024x768 (4:3 Esticado)</option>
+                <option value="1280x1024">1280x1024 (5:4)</option>
+              </select>
+            </div>
+            <button class="btn-primary" id="btn-apply-res" style="max-width: 250px;">APLICAR RESOLUÇÃO</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTENT GRID - PERFIL -->
+      <div class="dashboard-page-container" id="dash-page-profile" style="display: none;">
+        <div class="dash-card full-page-card profile-page-layout">
+          <div class="profile-left">
+            <div class="profile-header big-profile-header">
+              <div class="profile-avatar big-avatar" id="prof-avatar-img">👤</div>
+              <div class="profile-info-main">
+                <h3 id="prof-username">USER</h3>
+                <span class="rank-badge" id="prof-rank">BRONZE</span>
+              </div>
+            </div>
+            
+            <div class="input-group">
+              <label>ID DE USUÁRIO</label>
+              <div class="readonly-value" id="prof-id">#000000</div>
+            </div>
+
+            <div class="input-group">
+              <label>SENHA (VISUALIZAÇÃO)</label>
+              <div class="password-box">
+                <input type="password" id="prof-password" readonly value="mockpass" />
+                <button class="btn-eye" id="btn-toggle-pass">👁️</button>
+              </div>
+            </div>
+
+            <div class="input-group" style="margin-top: 15px;">
+              <label>ALTERAR FOTO DE PERFIL (URL)</label>
+              <div style="display: flex; gap: 10px;">
+                <input type="text" id="prof-avatar-input" placeholder="https://imgur.com/foto.png" autocomplete="off" style="flex: 1; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.5); color: #fff; border: 1px solid rgba(255,255,255,0.08);" />
+                <button class="btn-primary btn-small" id="btn-update-avatar" style="width: auto; margin-top: 0; padding: 0 15px;">SALVAR</button>
+              </div>
+            </div>
+          </div>
+          <div class="profile-divider"></div>
+          <div class="profile-right">
+            <h2>ESTATÍSTICAS GERAIS</h2>
+            <div class="profile-stats big-stats">
+              <div class="stat-box">
+                <div class="stat-label">HIGH SCORE (RECORD MUNDIAL)</div>
+                <div class="stat-val glow-white text-accent" id="prof-highscore">0</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">PARTIDAS JOGADAS</div>
+                <div class="stat-val" id="prof-matches">0</div>
+              </div>
+            </div>
+
+            <div style="margin-top: 30px; text-align: center;">
+              <a href="https://discord.gg/XUBPfGDM86" target="_blank" class="btn-discord btn-discord-large">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6066 3.9497-1.5218 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>
+                <span>ACESSAR COMUNIDADE NO DISCORD</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MENU DE PAUSA & SENSIBILIDADE -->
+  <div id="pause-overlay" class="overlay">
+    <div class="glass-panel pause-panel">
+      <h2 class="menu-title">MENU DE <span class="highlight">PAUSA</span></h2>
+      <p class="subtitle">Ajuste fino da Sensibilidade</p>
+
+      <div class="config-box">
+        <div class="input-group">
+          <label for="pauseSens">SENSIBILIDADE IN-GAME</label>
+          <div class="sens-row">
+            <input type="number" id="pauseSens" value="0.20" step="0.01" autocomplete="off" />
+            <span class="unit-tag">SEN</span>
+          </div>
+        </div>
+        <button class="btn-primary btn-small" id="btn-apply-sens">Salvar Sensibilidade</button>
+      </div>
+      
+      <button class="btn-primary btn-small" id="btn-back-lobby" style="margin-top: 15px; background: rgba(255, 60, 60, 0.8); color: #fff; border-color: transparent;">VOLTAR AO LOBBY</button>
+
+      <p class="menu-footer">Pressione <span class="key">U</span> ou CLIQUE FORA para retomar</p>
+    </div>
+  </div>
+
+
+
+  <!-- NOTIFICAÇÃO TOAST PARA AVISOS RÁPIDOS -->
+  <div id="toast-container"></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
