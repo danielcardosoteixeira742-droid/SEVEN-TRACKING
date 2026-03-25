@@ -4,7 +4,6 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 // --- ESTADO DO JOGO E BANCO DE DADOS (LOCALSTORAGE) ---
 const state = {
   playerName: 'USER',
-  dpi: 800,
   sens: 0.20,
   isPlaying: false,
   score: 0,
@@ -20,7 +19,6 @@ const hud = document.getElementById('hud');
 const authForm = document.getElementById('auth-form');
 
 const registerFields = document.getElementById('register-fields');
-const authDPIInput = document.getElementById('authDPI');
 const authSensInput = document.getElementById('authSens');
 const dashGridPlay = document.getElementById('dash-grid-play');
 const dashPageProfile = document.getElementById('dash-page-profile');
@@ -45,6 +43,10 @@ const authPasswordInput = document.getElementById('authPassword');
 const btnAuthText = document.getElementById('btn-auth-text');
 const authError = document.getElementById('auth-error');
 
+const dashOnlineCount = document.getElementById('dash-online-count');
+const crosshairConfigInput = document.getElementById('crosshairConfig');
+const btnApplyCrosshair = document.getElementById('btn-apply-crosshair');
+
 const profUsername = document.getElementById('prof-username');
 const profRank = document.getElementById('prof-rank');
 const profId = document.getElementById('prof-id');
@@ -62,6 +64,32 @@ const btnApplySens = document.getElementById('btn-apply-sens');
 const btnDayNightHud = document.getElementById('btn-day-night-hud');
 const modesList = document.getElementById('modes-list');
 const toastContainer = document.getElementById('toast-container');
+
+const hudTracerTxt = document.getElementById('hud-tracer-txt');
+const hudColorSep = document.getElementById('hud-color-sep');
+const hudColorHint = document.getElementById('hud-color-hint');
+const hudColorName = document.getElementById('hud-color-name');
+
+const tracerColors = [
+  { name: 'VERMELHO', hex: '#ff0000' },
+  { name: 'VERDE', hex: '#00ff00' },
+  { name: 'AZUL', hex: '#0088ff' },
+  { name: 'AMARELO', hex: '#ffff00' },
+  { name: 'ROSA', hex: '#ff00ff' },
+  { name: 'BRANCO', hex: '#ffffff' }
+];
+let currentTracerColorIdx = 0;
+let tracerEnabled = false;
+const tracers = [];
+
+const toggleTracer = () => {
+  tracerEnabled = !tracerEnabled;
+  if(hudTracerTxt) hudTracerTxt.innerText = tracerEnabled ? 'TRASANTE: ON' : 'TRASANTE: OFF';
+  if(hudColorSep) hudColorSep.style.display = tracerEnabled ? 'block' : 'none';
+  if(hudColorHint) hudColorHint.style.display = tracerEnabled ? 'block' : 'none';
+  if(hudColorName) hudColorName.innerText = tracerColors[currentTracerColorIdx].name;
+  showToast(tracerEnabled ? "Trasante Ativado" : "Trasante Desativado");
+};
 const crosshair = document.getElementById('crosshair');
 const scoreEl = document.getElementById('scoreVal');
 const modeEl = document.getElementById('modeVal');
@@ -74,10 +102,22 @@ const loadDatabase = async () => {
     const data = localStorage.getItem('sevenTrackingDB');
     if (data) {
       usersDB = JSON.parse(data);
+      if (!Array.isArray(usersDB)) usersDB = [];
     } else {
-      usersDB = [];
+      // Tenta carregar do db.json local se o localStorage estiver vazio
+      try {
+        const res = await fetch('/db.json');
+        if(res.ok) {
+          usersDB = await res.json();
+          localStorage.setItem('sevenTrackingDB', JSON.stringify(usersDB));
+        } else {
+          usersDB = [];
+        }
+      } catch(e) {
+        usersDB = [];
+      }
     }
-  } catch(e) { console.error("Error loading DB", e); }
+  } catch(e) { console.error("Error loading DB", e); usersDB = []; }
 };
 
 const saveDB = async (user) => {
@@ -107,6 +147,9 @@ const MODES = [
   { name: 'JUMPING BEAN', color: O_COLOR, scale: 0.7, count: 2, type: 'bounce', desc: 'Gravidade aplicada. Aprenda a rastrear alvos pulando no ar.' },
   { name: 'STRAFE TRACK', color: O_COLOR, scale: 0.6, count: 1, type: 'smooth_strafe', desc: 'Movimentações longas simulando um boneco strafando.' },
   { name: 'CHAOS SWARM', color: O_COLOR, scale: 0.4, count: 6, type: 'swarm', desc: 'Nuvem caótica de micro-alvos. Mantenha o foco em um de cada vez.' },
+  { name: 'WALL FRENZY', color: O_COLOR, scale: 0.8, count: 6, type: 'wall_grid', desc: 'Parede virtual com vários alvos. Destrua um para nascer outro na parede.' },
+  { name: 'ZIGZAG TRACK', color: O_COLOR, scale: 0.6, count: 1, type: 'zigzag', desc: 'O alvo faz movimentos rápidos e imprevisíveis em zigue-zague.' },
+  { name: 'PULSE TRACK', color: O_COLOR, scale: 0.6, count: 1, type: 'pulse', desc: 'O alvo muda de tamanho constantemente e exige foco contínuo.' }
 ];
 
 // Old selectors replaced by the block above
@@ -191,7 +234,7 @@ camera.position.set(0, 8, 0);
 
 const applySensitivity = () => {
   if (controls && controls.isLocked) { /* wait for pointerlock */ }
-  controls.pointerSpeed = Number(state.sens) * (Number(state.dpi) / 800) * 0.2; 
+  controls.pointerSpeed = Number(state.sens) * 0.2; 
 };
 
 // --- FUNÇÃO DIA / NOITE (TEXTOS CLARIFICADOS) ---
@@ -273,10 +316,25 @@ const updateDashboardStats = (user) => {
   graphReaction.innerHTML = generateGraphSVG('#f0e68c', false);
 };
 
+const renderLeaderboard = () => {
+  const lb = document.getElementById('ranking-list');
+  if(!lb) return;
+  lb.innerHTML = '';
+  const sorted = [...usersDB].sort((a,b) => (b.high_score || 0) - (a.high_score || 0)).slice(0, 5);
+  
+  const medals = ['gold', 'silver', 'bronze', '', ''];
+  sorted.forEach((u, i) => {
+    lb.innerHTML += `<div class="lb-row"><span class="lb-pos ${medals[i]}">${i+1}</span> <span class="lb-name">${u.username.toUpperCase()}</span> <span class="lb-score">${u.high_score || 0} pts</span></div>`;
+  });
+  
+  for(let i=sorted.length; i<5; i++) {
+    lb.innerHTML += `<div class="lb-row"><span class="lb-pos ${medals[i]}">-</span> <span class="lb-name"></span> <span class="lb-score"></span></div>`;
+  }
+};
+
 // --- LOGIC: LOGIN & DASHBOARD MOCK DB ---
 const showDashboard = (user) => {
   state.playerName = user.username;
-  state.dpi = user.dpi || 800;
   state.sens = user.sens || 0.20;
   
   playerNameDisplay.innerText = state.playerName.toUpperCase();
@@ -289,6 +347,29 @@ const showDashboard = (user) => {
   profPassword.value = user.password;
   profHighscore.innerText = user.high_score || 0;
   profMatches.innerText = user.matches || 0;
+  
+  if (crosshairConfigInput) {
+    crosshairConfigInput.value = user.crosshair || '';
+  }
+
+  if (dashOnlineCount) {
+    const updateOnlineCounter = async () => {
+      try {
+        const res = await fetch('/db.json?t=' + new Date().getTime());
+        if(res.ok) {
+          const freshDB = await res.json();
+          const localUsers = freshDB.length > 0 ? freshDB.length : 1;
+          dashOnlineCount.innerText = localUsers;
+        }
+      } catch(e) {}
+    };
+    updateOnlineCounter();
+    
+    // Atualizar os players online a cada 10 minutos (600000 ms)
+    if (!window.onlineInterval) {
+      window.onlineInterval = setInterval(updateOnlineCounter, 600000);
+    }
+  }
   
   if (user.customAvatar) {
     profAvatarImg.style.backgroundImage = `url('${user.customAvatar}')`;
@@ -320,6 +401,14 @@ const showDashboard = (user) => {
 
   applySensitivity();
   updateDashboardStats(user);
+  renderLeaderboard();
+  
+  if (user.crosshair) {
+    applyCrosshairString(user.crosshair);
+  } else {
+    applyCrosshairString('');
+  }
+  
   
   authScreen.classList.remove('active');
   dashboardScreen.style.display = 'flex';
@@ -369,59 +458,57 @@ authForm.addEventListener('submit', async (e) => {
   btnAuthText.innerText = 'CARREGANDO...';
   btnAuthText.parentElement.style.opacity = '0.7';
 
-  if (usersDB.length === 0) await loadDatabase();
+  try {
+    if (!usersDB || usersDB.length === 0) await loadDatabase();
 
-  const user = authUsernameInput.value.trim();
-  const pass = authPasswordInput.value.trim();
+    const user = authUsernameInput.value.trim();
+    const pass = authPasswordInput.value.trim();
 
-  if(!user || !pass) {
+    if(!user || !pass) {
+      return handleAuthError("Preencha todos os campos");
+    }
+
+    const existing = usersDB.find(u => u.username === user);
+
+    if (activeMode === 'register') {
+      if (existing) {
+        return handleAuthError("Usuário já existe. Tente logar.");
+      }
+      const newId = Math.random().toString(36).substr(2, 6).toUpperCase();
+      const newUser = { 
+        id: newId,
+        username: user, 
+        password: pass, 
+        sens: authSensInput.value ? Number(authSensInput.value) : 0.20,
+        high_score: 0,
+        matches: 0,
+        stats: { accuracy: 0, reaction: 0 },
+        customAvatar: '',
+        role: 'USER'
+      };
+      usersDB.push(newUser);
+      await saveDB(newUser);
+      showToast(`Conta criada: ${user}`);
+      showDashboard(newUser);
+    } else {
+      // Login
+      if (!existing) {
+        return handleAuthError("Usuário não encontrado.");
+      }
+      if (existing.password !== pass) {
+        return handleAuthError("Senha incorreta.");
+      }
+      
+      showToast(`Bem-vindo, ${user}`);
+      showDashboard(existing);
+    }
+  } catch (err) {
+    console.error("Auth error:", err);
+    handleAuthError("Erro interno no login.");
+  } finally {
     btnAuthText.innerText = btnOriginalText;
     btnAuthText.parentElement.style.opacity = '1';
-    return handleAuthError("Preencha todos os campos");
   }
-
-  const existing = usersDB.find(u => u.username === user);
-
-  if (activeMode === 'register') {
-    if (existing) {
-      btnAuthText.innerText = btnOriginalText;
-      btnAuthText.parentElement.style.opacity = '1';
-      return handleAuthError("Usuário já existe. Tente logar.");
-    }
-    const newId = Math.random().toString(36).substr(2, 6).toUpperCase();
-    const newUser = { 
-      id: newId,
-      username: user, 
-      password: pass, 
-      dpi: authDPIInput.value ? Number(authDPIInput.value) : 800, 
-      sens: authSensInput.value ? Number(authSensInput.value) : 0.20,
-      high_score: 0,
-      matches: 0,
-      stats: { accuracy: 0, reaction: 0 },
-      customAvatar: ''
-    };
-    usersDB.push(newUser);
-    await saveDB(newUser);
-    showToast(`Conta criada: ${user}`);
-    showDashboard(newUser);
-  } else {
-    // Login
-    if (!existing) {
-      btnAuthText.innerText = btnOriginalText;
-      btnAuthText.parentElement.style.opacity = '1';
-      return handleAuthError("Usuário não encontrado.");
-    }
-    if (existing.password !== pass) {
-      btnAuthText.innerText = btnOriginalText;
-      btnAuthText.parentElement.style.opacity = '1';
-      return handleAuthError("Senha incorreta.");
-    }
-    showToast(`Bem-vindo, ${user}`);
-    showDashboard(existing);
-  }
-  
-  btnAuthText.innerText = btnOriginalText;
-  btnAuthText.parentElement.style.opacity = '1';
 });
 
 btnLogout.addEventListener('click', logout);
@@ -440,12 +527,12 @@ btnApplySens.addEventListener('click', () => {
 });
 
 const renderModesMenu = () => {
-  modesList.innerHTML = '';
+  if (modesList) modesList.innerHTML = '';
+
   MODES.forEach((m, idx) => {
     const isCurrent = state.mode === idx;
     const card = document.createElement('div');
     card.className = `mode-card ${isCurrent ? 'active' : ''}`;
-    // Usar bordas Laranjas
     card.style.borderLeftColor = isCurrent ? '#ff8800' : '#888';
     card.innerHTML = `
       <div class="mode-card-title">${m.name}</div>
@@ -455,9 +542,9 @@ const renderModesMenu = () => {
       state.mode = idx;
       renderModesMenu();
       setupMode();
-      // Toast notice removed based on request
     });
-    modesList.appendChild(card);
+    
+    if(modesList) modesList.appendChild(card);
   });
 };
 renderModesMenu();
@@ -473,6 +560,7 @@ const switchDashPage = (pageName) => {
   dashGridPlay.style.display = 'none';
   dashPageProfile.style.display = 'none';
   dashPageConfig.style.display = 'none';
+  
   btnDashPlay.classList.remove('active');
   btnDashProfile.classList.remove('active');
   btnDashConfig.classList.remove('active');
@@ -558,6 +646,71 @@ btnApplyRes.addEventListener('click', () => {
   showToast("Resolução Atualizada");
 });
 
+const applyCrosshairString = (str) => {
+  if (!crosshair) return;
+  if (!str) {
+    crosshair.innerHTML = '+';
+    crosshair.style.cssText = '';
+    crosshair.className = 'crosshair-basic';
+    return;
+  }
+  
+  crosshair.innerHTML = '';
+  crosshair.className = 'crosshair-custom';
+  
+  crosshair.style.cssText = `
+    position: absolute; 
+    top: 50%; left: 50%; 
+    pointer-events: none; 
+    z-index: 10;
+    width: 0px; height: 0px;
+    display: flex; justify-content: center; align-items: center;
+  `;
+
+  const getVal = (key, defaultVal) => {
+    const regex = new RegExp(`(?:["']?${key}["']?\\s+["']?([^"';\\s]+)["']?)`, 'i');
+    const match = str.match(regex);
+    return match ? parseFloat(match[1]) : defaultVal;
+  };
+
+  const size = getVal('cl_crosshairsize', 3);
+  const thick = getVal('cl_crosshairthickness', 0.5);
+  const gap = getVal('cl_crosshairgap', 1);
+  const r = getVal('cl_crosshaircolor_r', 0);
+  const g = getVal('cl_crosshaircolor_g', 255);
+  const b = getVal('cl_crosshaircolor_b', 0);
+  const a = getVal('cl_crosshairalpha', 255);
+  const outline = getVal('cl_crosshair_drawoutline', 0);
+  const outlineThick = getVal('cl_crosshair_outlinethickness', 1);
+  const dot = getVal('cl_crosshairdot', 0);
+
+  const rgba = `rgba(${r}, ${g}, ${b}, ${a/255})`;
+  const border = outline ? `border: ${outlineThick}px solid black; box-sizing: border-box;` : '';
+  const bg = `background-color: ${rgba}; ${border}`;
+
+  crosshair.innerHTML += `<div style="position:absolute; bottom: ${gap}px; left: 50%; transform: translateX(-50%); width: ${thick}px; height: ${size}px; ${bg}"></div>`;
+  crosshair.innerHTML += `<div style="position:absolute; top: ${gap}px; left: 50%; transform: translateX(-50%); width: ${thick}px; height: ${size}px; ${bg}"></div>`;
+  crosshair.innerHTML += `<div style="position:absolute; right: ${gap}px; top: 50%; transform: translateY(-50%); width: ${size}px; height: ${thick}px; ${bg}"></div>`;
+  crosshair.innerHTML += `<div style="position:absolute; left: ${gap}px; top: 50%; transform: translateY(-50%); width: ${size}px; height: ${thick}px; ${bg}"></div>`;
+
+  if (dot) {
+    crosshair.innerHTML += `<div style="position:absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: ${thick}px; height: ${thick}px; ${bg}"></div>`;
+  }
+};
+
+if (btnApplyCrosshair) {
+  btnApplyCrosshair.addEventListener('click', () => {
+    const crosshairStr = crosshairConfigInput.value.trim();
+    const currentUser = usersDB.find(u => u.username === state.playerName);
+    if (currentUser) {
+      currentUser.crosshair = crosshairStr;
+      saveDB(currentUser);
+      applyCrosshairString(crosshairStr);
+      showToast("Configuração de Mira Salva!");
+    }
+  });
+}
+
 let sessionFrames = 0;
 let sessionHits = 0;
 
@@ -606,6 +759,65 @@ controls.addEventListener('unlock', () => {
   }
 });
 
+window.addEventListener('mousedown', (e) => {
+  if (state.isPlaying && controls.isLocked && e.button === 0) {
+    e.preventDefault();
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObjects(targets);
+
+    if (tracerEnabled) {
+      const colorStr = tracerColors[currentTracerColorIdx].hex;
+      const startPt = state.hasGunAttached ? new THREE.Vector3().setFromMatrixPosition(gunGroup.matrixWorld) : new THREE.Vector3().copy(camera.position);
+      if(!state.hasGunAttached) {
+         startPt.y -= 0.5;
+         startPt.add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(1));
+      }
+      let endPt;
+      if(intersects.length > 0) {
+         endPt = intersects[0].point;
+      } else {
+         endPt = new THREE.Vector3().copy(camera.position).add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(100));
+      }
+
+      const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(colorStr).getHex(), transparent: true, opacity: 1, linewidth: 2 });
+      const geo = new THREE.BufferGeometry().setFromPoints([startPt, endPt]);
+      const line = new THREE.Line(geo, mat);
+      scene.add(line);
+      tracers.push({ mesh: line, life: 1.0 });
+    }
+    
+    if (intersects.length > 0) {
+      const hitObj = intersects[0].object;
+      
+      sessionHits++;
+      state.score += 10;
+      scoreEl.innerText = state.score;
+
+      const currentUser = usersDB.find(u => u.username === state.playerName);
+      if (currentUser && state.score > (currentUser.high_score || 0)) {
+        currentUser.high_score = state.score;
+        saveDB(currentUser);
+      }
+
+      if (gunGroup.visible) {
+        gunGroup.position.z = -0.45; // Coice
+      }
+
+      const m = MODES[state.mode];
+      // Apenas explode o alvo caso satisfaça o grid/wall_grid ou seja micro/track etc
+      if(m.type === 'grid' || m.type === 'wall_grid' || hitObj.scale.x < (m.scale * 0.3)) {
+        scene.remove(hitObj);
+        targets = targets.filter(t => t !== hitObj);
+        spawnTarget(m, true);
+      }
+    }
+  }
+});
+
+// Reseta o evento pro mouse
+window.addEventListener('mouseup', () => {
+});
+
 document.addEventListener('click', (e) => {
   if (!controls.isLocked && !authScreen.classList.contains('active') && dashboardScreen.style.display === 'none') {
     if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON' && !e.target.closest('.mode-card') && !e.target.closest('.btn-hud')) {
@@ -614,7 +826,7 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// --- LÓGICA DE ALVOS (AGORA EM LARANJA) ---
+// --- LÓGICA DE ALVOS (BONECOS E BOLAS) ---
 let targets = [];
 const targetGeo = new THREE.IcosahedronGeometry(2, 2); 
 
@@ -625,7 +837,8 @@ const spawnTarget = (modeData, isRespawn = false) => {
     emissiveIntensity: 0.6,
     shininess: 100,
   });
-  const mesh = new THREE.Mesh(targetGeo, mat);
+  let mesh = new THREE.Mesh(targetGeo, mat);
+  
   mesh.scale.set(modeData.scale, modeData.scale, modeData.scale);
   
   let startX = (Math.random() - 0.5) * 60;
@@ -635,6 +848,10 @@ const spawnTarget = (modeData, isRespawn = false) => {
   if (modeData.type === 'orbit') {
     startX = 30;
     startZ = 0;
+  } else if (modeData.type === 'wall_grid') {
+    startX = (Math.random() - 0.5) * 50; 
+    startY = 5 + Math.random() * 30;     
+    startZ = -39; 
   }
 
   mesh.position.set(startX, startY, startZ);
@@ -645,7 +862,8 @@ const spawnTarget = (modeData, isRespawn = false) => {
     velX: (Math.random() > 0.5 ? 1 : -1) * (15 + Math.random() * 10),
     velY: (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 10),
     baseY: startY,
-    angle: 0
+    angle: 0,
+    baseScale: modeData.scale
   };
 
   scene.add(mesh);
@@ -656,9 +874,22 @@ const spawnTarget = (modeData, isRespawn = false) => {
 const setupMode = () => {
   targets.forEach(t => scene.remove(t));
   targets = [];
-  const m = MODES[state.mode];
   
+  if (window.modeWall) {
+    scene.remove(window.modeWall);
+    window.modeWall = null;
+  }
+
+  const m = MODES[state.mode];
   modeEl.innerText = m.name;
+  
+  if (m.type === 'wall_grid') {
+    const wallGeo = new THREE.PlaneGeometry(60, 40);
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x222222, side: THREE.DoubleSide });
+    window.modeWall = new THREE.Mesh(wallGeo, wallMat);
+    window.modeWall.position.set(0, 20, -40);
+    scene.add(window.modeWall);
+  }
   
   for(let i=0; i<m.count; i++) spawnTarget(m);
 
@@ -678,6 +909,19 @@ function animate() {
   const time = clock.getElapsedTime();
 
   hitTimer -= delta;
+
+  for (let i = tracers.length - 1; i >= 0; i--) {
+    let tr = tracers[i];
+    tr.life -= delta * 3;
+    if(tr.life <= 0) {
+      scene.remove(tr.mesh);
+      tr.mesh.geometry.dispose();
+      tr.mesh.material.dispose();
+      tracers.splice(i, 1);
+    } else {
+      tr.mesh.material.opacity = tr.life;
+    }
+  }
 
   // Animar Arma levemente
   if (gunGroup.visible) {
@@ -732,9 +976,28 @@ function animate() {
           t.position.x += Math.sin(u.time + i) * delta * 35;
           t.position.y += Math.cos(u.time * 1.5 + i) * delta * 25;
           break;
+
+        case 'wall_grid':
+          // Não se move
+          break;
+
+        case 'zigzag':
+          if (Math.random() < 0.05) u.velY *= -1;
+          if (Math.random() < 0.02) u.velX *= -1;
+          t.position.x += u.velX * 1.5 * delta;
+          t.position.y += u.velY * 1.5 * delta;
+          break;
+
+        case 'pulse':
+          t.scale.setScalar(u.baseScale + Math.sin(u.time * 5) * 0.3);
+          if (Math.random() < 0.015) u.velX *= -1;
+          if (Math.random() < 0.015) u.velY *= -1;
+          t.position.x += u.velX * 0.8 * delta;
+          t.position.y += u.velY * 0.6 * delta;
+          break;
       }
 
-      if(u.type !== 'orbit') {
+      if(u.type !== 'orbit' && u.type !== 'wall_grid') {
         if (t.position.x > 50) { t.position.x = 50; u.velX *= -1; }
         if (t.position.x < -50) { t.position.x = -50; u.velX *= -1; }
         if (t.position.y > 40) { t.position.y = 40; u.velY *= -1; }
@@ -746,39 +1009,16 @@ function animate() {
     const intersects = raycaster.intersectObjects(targets);
     
     if (intersects.length > 0) {
-      sessionHits++;
-      if(hitTimer <= 0) { 
-        state.score += 10;
-        scoreEl.innerText = state.score;
-        hitTimer = 0.05;
-
-        // HIGH SCORE LOGIC
-        const currentUser = usersDB.find(u => u.username === state.playerName);
-        if (currentUser && state.score > (currentUser.high_score || 0)) {
-          currentUser.high_score = state.score;
-          saveDB(currentUser);
-        }
-
-        // Efeito de tiro na arma 3D
-        if (gunGroup.visible) {
-          gunGroup.position.z = -0.45; // Coice
-        }
-      }
       crosshair.classList.add('crosshair-active');
       const hitObj = intersects[0].object;
+      
       hitObj.material.emissiveIntensity = 1.0;
       hitObj.scale.set(hitObj.scale.x * 0.95, hitObj.scale.y * 0.95, hitObj.scale.z * 0.95);
-
-      const m = MODES[state.mode];
-      if(m.type === 'grid' || hitObj.scale.x < (m.scale * 0.3)) {
-        scene.remove(hitObj);
-        targets = targets.filter(t => t !== hitObj);
-        spawnTarget(m, true);
-      }
     } else {
       crosshair.classList.remove('crosshair-active');
       targets.forEach(t => {
         t.material.emissiveIntensity = 0.5;
+        
         const scaleBase = MODES[state.mode].scale;
         if(t.scale.x < scaleBase) {
            t.scale.addScalar(delta * 0.5);
@@ -794,12 +1034,12 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-// Borda hotkeys (U, L, H)
+// Borda hotkeys (A, B, C, D)
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || authScreen.classList.contains('active') || dashboardScreen.style.display !== 'none') return;
   const k = e.key.toLowerCase();
   
-  if (k === 'u') {
+  if (k === 'a') {
     if (controls.isLocked) {
       controls.unlock();
     } else {
@@ -808,15 +1048,25 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  if (k === 'l') {
+  if (k === 'b') {
     toggleDayNight();
   }
 
-  // BOTÃO DA ARMA (H)
-  if (k === 'h') {
+  // BOTÃO DA ARMA (C)
+  if (k === 'c') {
     state.hasGunAttached = !state.hasGunAttached;
     gunGroup.visible = state.hasGunAttached;
     showToast(state.hasGunAttached ? "Arma 3D Equipada" : "Arma Oculta");
+  }
+
+  if (k === 'd') {
+    toggleTracer();
+  }
+  
+  if (k === 'v' && tracerEnabled) {
+    currentTracerColorIdx = (currentTracerColorIdx + 1) % tracerColors.length;
+    if(hudColorName) hudColorName.innerText = tracerColors[currentTracerColorIdx].name;
+    showToast("Cor Trasante: " + tracerColors[currentTracerColorIdx].name);
   }
 });
 

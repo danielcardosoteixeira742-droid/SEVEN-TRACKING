@@ -3,7 +3,6 @@
     "id": "UI68EB",
     "username": "danxv",
     "password": "123",
-    "dpi": 800,
     "sens": "1",
     "high_score": 10,
     "customAvatar": "https://media.discordapp.net/attachments/1377270443592912956/1420033631321194616/0ce14856094b6ce954fc03360edc3cf0.png?ex=69c13ae0&is=69bfe960&hm=c518e7d4965d2a5fff75f26159b212f1f9ff129f61f2331ba68496a6a3a17fb7&=&format=webp&quality=lossless",
@@ -11,6 +10,7 @@
       "accuracy": 0.2515723270440252,
       "reaction": 319.874213836478
     },
-    "matches": 3
+    "matches": 3,
+    "role": "USER"
   }
 ]

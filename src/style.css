@@ -491,6 +491,8 @@ body {
   align-items: center;
   gap: 16px;
   letter-spacing: 0.5px;
+  white-space: nowrap;
+  width: max-content;
 }
 
 .hint-separator {
